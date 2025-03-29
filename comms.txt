@@ -3,3 +3,6 @@ npm install --save-dev typescript @types/node @types/express @types/cors
 npm install express
 npm install cors
 npx tsc --init
+rm -rf dist
+npx tsc
+node dist/server.js
