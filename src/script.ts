@@ -1,106 +1,140 @@
 const lista = document.getElementById("lista") as HTMLUListElement;
 const itemInput = document.getElementById("itemInput") as HTMLInputElement;
+const searchInput = document.createElement("input");
+searchInput.placeholder = "Buscar producto...";
+searchInput.addEventListener("input", filtrarLista);
+document.body.insertBefore(searchInput, lista);
 
-// Interfaz para un item
 interface Item {
   id: number;
   descripcion: string;
+  cantidad: number;
+  estado: "pendiente" | "comprado";
 }
 
-// Cargar la lista desde el servidor
-function cargarLista(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    fetch("http://localhost:3000/items")
-      .then((response) => response.json())
-      .then((data: { items: Item[] }) => {
-        if (lista) {
-          lista.innerHTML = ""; // Limpiar la lista antes de renderizar
-          data.items.forEach((item) => renderizarItem(item));
-        }
-        resolve();
-      })
-      .catch((error) => reject("Error al cargar la lista"));
-  });
-}
-
-// Agregar un nuevo item
-function agregarItem(): Promise<void> | void {
-  if (!itemInput) return;
-  const item = itemInput.value.trim();
-  if (!item) return;
-  itemInput.value = "";
-
-  const itemNormalizado = item.toLowerCase();
-  // Verificar si ya existe en la lista
-  const itemsExistentes = Array.from(document.querySelectorAll<HTMLSpanElement>("#lista li span"))
-    .map((span) => span.textContent?.trim().toLowerCase() || "");
-
-  if (itemsExistentes.includes(itemNormalizado)) {
-    alert("Este producto ya está en la lista.");
-    return;
+async function cargarLista(): Promise<void> {
+  try {
+    const response = await fetch("http://localhost:3000/items");
+    const data: { items: Item[] } = await response.json();
+    localStorage.setItem("lista", JSON.stringify(data.items));
+    renderizarLista(data.items);
+  } catch (error) {
+    console.error("Error al cargar la lista", error);
   }
+}
 
-  return new Promise((resolve, reject) => {
-    fetch("http://localhost:3000/items", {
+function renderizarLista(items: Item[]): void {
+  lista.innerHTML = "";
+  items.sort((a, b) => {
+    if (a.estado === b.estado) return 0; // Si ambos tienen el mismo estado, no se reordenan
+    return a.estado === "comprado" ? 1 : -1; // Los "comprados" van al final
+  });
+    items.forEach(renderizarItem);
+}
+
+function renderizarItem(item: Item): void {
+    const li = document.createElement("li");
+    li.classList.toggle("comprado", item.estado === "comprado");
+  
+    // Crear checkbox
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = item.estado === "comprado";
+    checkbox.addEventListener("change", () => {
+        cambiarEstado(item.id, checkbox.checked);
+        li.classList.toggle("comprado", checkbox.checked); // Actualiza la clase del <li>
+      });
+        
+    // Crear descripción
+    const span = document.createElement("span");
+    span.id = `desc-${item.id}`;
+    span.textContent = `${item.descripcion} (x${item.cantidad})`;
+    if (item.estado === "comprado") {
+      span.classList.add("tachado");
+    }
+  
+    // Crear botón eliminar
+    const btnEliminar = document.createElement("button");
+    btnEliminar.textContent = "❌";
+    btnEliminar.classList.add("danger");
+    btnEliminar.addEventListener("click", () => eliminarItem(item.id));
+  
+    // Crear botón editar
+    const btnEditar = document.createElement("button");
+    btnEditar.textContent = "✏️";
+    btnEditar.addEventListener("click", () => editarItem(item.id));
+  
+    // Agregar elementos a la lista
+    li.appendChild(checkbox);
+    li.appendChild(span);
+    li.appendChild(btnEditar);
+    li.appendChild(btnEliminar);
+    lista.appendChild(li);
+  }
+  
+  
+
+async function agregarItem(): Promise<void> {
+  const descripcion = itemInput.value.trim();
+  if (!descripcion) return;
+  const cantidad = parseInt(prompt("Cantidad:") || "1");
+  const nuevoItem: Item = { id: Date.now(), descripcion, cantidad, estado: "pendiente" };
+  try {
+    await fetch("http://localhost:3000/items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ descripcion: item }),
-    })
-      .then((response) => response.json())
-      .then((data: Item) => {
-        renderizarItem(data);
-        resolve();
-      })
-      .catch((error) => reject("Error al agregar item"));
-  });
+      body: JSON.stringify(nuevoItem),
+    });
+    cargarLista();
+  } catch (error) {
+    console.error("Error al agregar item", error);
+  }
 }
 
-// Renderizar un item en la lista
-function renderizarItem(item: Item): void {
-  const li = document.createElement("li");
-  li.innerHTML = `
-    <span id="${item.id}">${item.descripcion}</span> 
-    <button class="danger" onclick="eliminarItem(${item.id}, this)">❌</button>
-    <button class="edit" onclick="editarItem(${item.id}, this)">✏️</button>
-  `;
-  lista?.appendChild(li);
+async function eliminarItem(id: number): Promise<void> {
+  try {
+    await fetch(`http://localhost:3000/items/${id}`, { method: "DELETE" });
+    cargarLista();
+  } catch (error) {
+    console.error("Error al eliminar item", error);
+  }
 }
 
-// Eliminar un item
-function eliminarItem(id: number, boton: HTMLButtonElement): Promise<void> {
-  return new Promise((resolve, reject) => {
-    fetch(`http://localhost:3000/items/${id}`, { method: "DELETE" })
-      .then((response) => response.json())
-      .then(() => {
-        boton.parentElement?.remove();
-        resolve();
-      })
-      .catch((error) => reject("Error al eliminar item"));
-  });
-}
-
-// Editar un item
-function editarItem(id: number, boton: HTMLButtonElement): void {
-  const nuevoTexto = prompt(
-    "Editar item:",
-    boton.parentElement?.firstChild?.textContent?.trim() || ""
-  );
+async function editarItem(id: number): Promise<void> {
+  const nuevoTexto = prompt("Editar item:", document.getElementById(`desc-${id}`)?.textContent || "");
   if (!nuevoTexto) return;
-
-  fetch(`http://localhost:3000/items/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ descripcion: nuevoTexto }),
-  })
-    .then((response) => response.json())
-    .then((data: Item) => {
-      const span = document.getElementById(`${id}`) as HTMLSpanElement;
-      if (span) {
-        span.textContent = nuevoTexto;
-      }
-    })
-    .catch((error) => console.error("Error al editar item", error));
+  try {
+    await fetch(`http://localhost:3000/items/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ descripcion: nuevoTexto }),
+    });
+    cargarLista();
+  } catch (error) {
+    console.error("Error al editar item", error);
+  }
 }
 
-// Cargar la lista al iniciar
+async function cambiarEstado(id: number, estado: boolean): Promise<void> {
+  try {
+    await fetch(`http://localhost:3000/items/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estado: estado ? "comprado" : "pendiente" }),
+    });
+    cargarLista();
+  } catch (error) {
+    console.error("Error al cambiar estado", error);
+  }
+}
+
+function filtrarLista(): void {
+  const filtro = searchInput.value.toLowerCase();
+  document.querySelectorAll<HTMLLIElement>('#lista li').forEach((li) => {
+    const texto = li.textContent?.toLowerCase() || "";
+    li.style.display = texto.includes(filtro) ? "block" : "none";
+  });
+}
+
+
 cargarLista().catch((error) => console.error(error));

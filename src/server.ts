@@ -10,6 +10,8 @@ const PORT = 3000;
 interface Item {
   id: number;
   descripcion: string;
+  cantidad: number;
+  estado: "pendiente" | "comprado";
 }
 
 // Tipado para el contenido del archivo JSON
@@ -23,43 +25,46 @@ app.use(express.json());
 app.use(express.static(path.join(process.cwd(), 'public')));
 app.use('/dist', express.static(path.join(process.cwd(), 'dist')));
 
-
 app.get('/', (req: Request, res: Response) => {
   res.sendFile(path.join(process.cwd(), 'views', 'index.html'));
 });
 
-app.get('/items', (req: Request, res: Response) => {
-  leerArchivoJson()
-    .then((data) => res.json(data))
-    .catch((error) => res.status(500).json({ error: 'Error al leer el archivo' }));
+app.get('/items', async (req: Request, res: Response) => {
+  try {
+    const data = await leerArchivoJson();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al leer el archivo' });
+  }
 });
 
-  
 app.post('/items', async (req: Request, res: Response) => {
-  const { descripcion } = req.body;
+  const { descripcion, cantidad = 1 } = req.body;
   if (!descripcion) {
     res.status(400).json({ error: 'Descripción del item es requerida' });
     return;
   }
 
+  const nuevoItem: Item = { 
+    id: Date.now(), 
+    descripcion, 
+    cantidad: Number(cantidad), 
+    estado: "pendiente" 
+  };
 
-    const nuevoItem: Item = { id: Date.now(), descripcion };
-  
-    try {
-      const data = await leerArchivoJson();
-      data.items.push(nuevoItem);
-      await escribirArchivoJson(data);
-      res.json(nuevoItem);
-    } catch (error) {
-      res.status(500).json({ error: 'Error al agregar el item' });
-    }
+  try {
+    const data = await leerArchivoJson();
+    data.items.push(nuevoItem);
+    await escribirArchivoJson(data);
+    res.json(nuevoItem);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al agregar el item' });
+  }
 });
 
 app.delete('/items/:id', async (req: Request, res: Response) => {
-  try{
-  const id = parseInt(req.params.id);
-
-  
+  try {
+    const id = parseInt(req.params.id);
     const data = await leerArchivoJson();
     const index = data.items.findIndex(item => item.id === id);
     if (index === -1) {
@@ -76,12 +81,7 @@ app.delete('/items/:id', async (req: Request, res: Response) => {
 
 app.put('/items/:id', async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
-  const { descripcion } = req.body;
-
-  if (!descripcion) {
-    res.status(400).json({ error: 'Descripción del item es requerida' });
-    return;
-  }
+  const { descripcion, cantidad, estado } = req.body;
 
   try {
     const data = await leerArchivoJson();
@@ -90,7 +90,11 @@ app.put('/items/:id', async (req: Request, res: Response) => {
       res.status(404).json({ error: 'Item no encontrado' });
       return;
     }
-    item.descripcion = descripcion;
+
+    if (descripcion) item.descripcion = descripcion;
+    if (cantidad !== undefined) item.cantidad = Number(cantidad);
+    if (estado) item.estado = estado;
+
     await escribirArchivoJson(data);
     res.json({ message: 'Item actualizado' });
   } catch (error) {
@@ -98,33 +102,35 @@ app.put('/items/:id', async (req: Request, res: Response) => {
   }
 });
 
-
-
-  function leerArchivoJson(): Promise<ListaItems> {
+// Función para leer el archivo JSON
+function leerArchivoJson(): Promise<ListaItems> {
   return new Promise((resolve, reject) => {
-  fs.readFile(path.join(process.cwd(), 'lista.json'), 'utf8', (err, data)=> {
-  if (err) return reject(err);
-  try {
-  resolve(JSON.parse(data) as ListaItems);
-  } catch (error) {
-  reject(error);
-  }
+    fs.readFile(path.join(process.cwd(), 'lista.json'), 'utf8', (err, data) => {
+      if (err) return reject(err);
+      try {
+        resolve(JSON.parse(data) as ListaItems);
+      } catch (error) {
+        reject(error);
+      }
+    });
   });
-  });
-  }
-  
+}
 
+// Función para escribir en el archivo JSON
 function escribirArchivoJson(data: ListaItems): Promise<void> {
   return new Promise((resolve, reject) => {
-    fs.writeFile(path.join(process.cwd(), 'lista.json'),
-      JSON.stringify(data, null, 2), 'utf8', (err) => {
-  if (err) return reject(err);
-  resolve();
+    fs.writeFile(
+      path.join(process.cwd(), 'lista.json'),
+      JSON.stringify(data, null, 2),
+      'utf8',
+      (err) => {
+        if (err) return reject(err);
+        resolve();
+      }
+    );
   });
-  });
-  }
-  
+}
 
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`); // Mensaje en consola cuando el servidor esté corriendo
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
