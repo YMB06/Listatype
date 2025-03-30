@@ -6,12 +6,14 @@ import path from 'path';
 const app = express();
 const PORT = 3000;
 
+
 // Tipado para los items
 interface Item {
   id: number;
   descripcion: string;
   cantidad: number;
   estado: "pendiente" | "comprado";
+  categoria: String;
 }
 
 // Tipado para el contenido del archivo JSON
@@ -38,10 +40,11 @@ app.get('/items', async (req: Request, res: Response) => {
   }
 });
 
+// Código para agregar un nuevo item
 app.post('/items', async (req: Request, res: Response) => {
-  const { descripcion, cantidad = 1 } = req.body;
-  if (!descripcion) {
-    res.status(400).json({ error: 'Descripción del item es requerida' });
+  const { descripcion, cantidad = 1, categoria } = req.body;  // Asegúrate de recibir la categoría
+  if (!descripcion || !categoria) {
+    res.status(400).json({ error: 'Descripción del item y categoría son requeridos' });
     return;
   }
 
@@ -49,7 +52,8 @@ app.post('/items', async (req: Request, res: Response) => {
     id: Date.now(), 
     descripcion, 
     cantidad: Number(cantidad), 
-    estado: "pendiente" 
+    estado: "pendiente", 
+    categoria: categoria  // Usar la categoría enviada por el cliente
   };
 
   try {
@@ -62,6 +66,30 @@ app.post('/items', async (req: Request, res: Response) => {
   }
 });
 
+// Código para actualizar un item
+app.put('/items/:id', async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id);
+  const { descripcion, cantidad, estado, categoria } = req.body;
+
+  try {
+    const data = await leerArchivoJson();
+    const item = data.items.find(item => item.id === id);
+    if (!item) {
+      res.status(404).json({ error: 'Item no encontrado' });
+      return;
+    }
+
+    if (descripcion) item.descripcion = descripcion;
+    if (cantidad !== undefined) item.cantidad = Number(cantidad);
+    if (estado) item.estado = estado;
+    if (categoria) item.categoria = categoria;  // Actualizar la categoría si se recibe
+
+    await escribirArchivoJson(data);
+    res.json({ message: 'Item actualizado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar el item' });
+  }
+});
 app.delete('/items/:id', async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
@@ -79,28 +107,8 @@ app.delete('/items/:id', async (req: Request, res: Response) => {
   }
 });
 
-app.put('/items/:id', async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
-  const { descripcion, cantidad, estado } = req.body;
 
-  try {
-    const data = await leerArchivoJson();
-    const item = data.items.find(item => item.id === id);
-    if (!item) {
-      res.status(404).json({ error: 'Item no encontrado' });
-      return;
-    }
 
-    if (descripcion) item.descripcion = descripcion;
-    if (cantidad !== undefined) item.cantidad = Number(cantidad);
-    if (estado) item.estado = estado;
-
-    await escribirArchivoJson(data);
-    res.json({ message: 'Item actualizado' });
-  } catch (error) {
-    res.status(500).json({ error: 'Error al actualizar el item' });
-  }
-});
 
 // Función para leer el archivo JSON
 function leerArchivoJson(): Promise<ListaItems> {

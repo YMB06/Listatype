@@ -1,22 +1,53 @@
 {
   "items": [
     {
-      "id": 1743245776021,
+      "id": 1743331330060,
+      "descripcion": "qw",
+      "cantidad": 5,
+      "estado": "pendiente",
+      "categoria": "Verduras"
+    },
+    {
+      "id": 1743331346779,
+      "descripcion": "qw",
+      "cantidad": 8,
+      "estado": "pendiente",
+      "categoria": "Verduras"
+    },
+    {
+      "id": 1743332882846,
+      "descripcion": "qw3x5)",
+      "cantidad": 5,
+      "estado": "pendiente",
+      "categoria": "General"
+    },
+    {
+      "id": 1743333538367,
+      "descripcion": "qw",
+      "cantidad": 0,
+      "estado": "pendiente",
+      "categoria": "General"
+    },
+    {
+      "id": 1743334243311,
       "descripcion": "qw",
       "cantidad": 4,
-      "estado": "pendiente"
+      "estado": "pendiente",
+      "categoria": "Verduras"
     },
     {
-      "id": 1743246256981,
+      "id": 1743334847768,
       "descripcion": "qw",
       "cantidad": 3,
-      "estado": "pendiente"
+      "estado": "pendiente",
+      "categoria": "Lácteos"
     },
     {
-      "id": 1743247088436,
+      "id": 1743335299241,
       "descripcion": "qw",
-      "cantidad": 3,
-      "estado": "pendiente"
+      "cantidad": 5,
+      "estado": "pendiente",
+      "categoria": "Lácteos"
     }
   ]
 }

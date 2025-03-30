@@ -35,17 +35,19 @@ app.get('/items', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         res.status(500).json({ error: 'Error al leer el archivo' });
     }
 }));
+// Código para agregar un nuevo item
 app.post('/items', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { descripcion, cantidad = 1 } = req.body;
-    if (!descripcion) {
-        res.status(400).json({ error: 'Descripción del item es requerida' });
+    const { descripcion, cantidad = 1, categoria } = req.body; // Asegúrate de recibir la categoría
+    if (!descripcion || !categoria) {
+        res.status(400).json({ error: 'Descripción del item y categoría son requeridos' });
         return;
     }
     const nuevoItem = {
         id: Date.now(),
         descripcion,
         cantidad: Number(cantidad),
-        estado: "pendiente"
+        estado: "pendiente",
+        categoria: categoria // Usar la categoría enviada por el cliente
     };
     try {
         const data = yield leerArchivoJson();
@@ -55,6 +57,32 @@ app.post('/items', (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     }
     catch (error) {
         res.status(500).json({ error: 'Error al agregar el item' });
+    }
+}));
+// Código para actualizar un item
+app.put('/items/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const id = parseInt(req.params.id);
+    const { descripcion, cantidad, estado, categoria } = req.body;
+    try {
+        const data = yield leerArchivoJson();
+        const item = data.items.find(item => item.id === id);
+        if (!item) {
+            res.status(404).json({ error: 'Item no encontrado' });
+            return;
+        }
+        if (descripcion)
+            item.descripcion = descripcion;
+        if (cantidad !== undefined)
+            item.cantidad = Number(cantidad);
+        if (estado)
+            item.estado = estado;
+        if (categoria)
+            item.categoria = categoria; // Actualizar la categoría si se recibe
+        yield escribirArchivoJson(data);
+        res.json({ message: 'Item actualizado' });
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Error al actualizar el item' });
     }
 }));
 app.delete('/items/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -72,29 +100,6 @@ app.delete('/items/:id', (req, res) => __awaiter(void 0, void 0, void 0, functio
     }
     catch (error) {
         res.status(500).json({ error: 'Error al eliminar el item' });
-    }
-}));
-app.put('/items/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const id = parseInt(req.params.id);
-    const { descripcion, cantidad, estado } = req.body;
-    try {
-        const data = yield leerArchivoJson();
-        const item = data.items.find(item => item.id === id);
-        if (!item) {
-            res.status(404).json({ error: 'Item no encontrado' });
-            return;
-        }
-        if (descripcion)
-            item.descripcion = descripcion;
-        if (cantidad !== undefined)
-            item.cantidad = Number(cantidad);
-        if (estado)
-            item.estado = estado;
-        yield escribirArchivoJson(data);
-        res.json({ message: 'Item actualizado' });
-    }
-    catch (error) {
-        res.status(500).json({ error: 'Error al actualizar el item' });
     }
 }));
 // Función para leer el archivo JSON
